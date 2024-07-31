@@ -76,7 +76,12 @@ void redirect(int fd, char *path, int flag) {   // リダイレクト処理を�
   // flag : open システムコールに渡すフラグ
   //        入力の場合 O_RDONLY
   //        出力の場合 O_WRONLY|O_TRUNC|O_CREAT
-  //
+  close(fd);
+  int fd2 =open(path,flag,0644);
+  if (fd2 != fd) {
+    fprintf(stderr, "something is wrong\n");
+    exit (1);
+  }
 }
 
 void externalCom(char *args[]) {                // 外部コマンドを実行する
@@ -86,6 +91,12 @@ void externalCom(char *args[]) {                // 外部コマンドを実行�
     exit(1);                                    //     非常事態，親を終了
   }
   if (pid==0) {                                 //   子プロセスなら
+    if (ofile != NULL) {
+      redirect(1,ofile,O_WRONLY|O_TRUNC|O_CREAT);
+    } 
+    if (ifile != NULL) {
+      redirect(0,ifile,O_RDONLY); 
+    }
     execvp(args[0], args);                      //     コマンドを実行
     perror(args[0]);
     exit(1);
@@ -129,4 +140,67 @@ int main() {
   }
   return 0;
 }
+
+
+/*
+
+% make
+cc -D_GNU_SOURCE -Wall -std=c99 -o myshell myshell.c
+
+% ./myshell
+
+出力リダイレクト成功
+Command: ls
+Makefile	README.md	README.pdf	myshell		myshell.c
+Command: ls > a.txt
+Command: ls
+Makefile	README.pdf	myshell
+README.md	a.txt		myshell.c
+Command: cat a.txt
+Makefile
+README.md
+README.pdf
+a.txt
+myshell
+myshell.c
+
+出力リダイレクト上書き
+Command: ls -l
+total 456
+-rw-r--r--  1 imaisasuke  staff      88  7 25 09:58 Makefile
+-rw-r--r--  1 imaisasuke  staff    1594  7 25 09:58 README.md
+-rw-r--r--  1 imaisasuke  staff  172057  7 25 09:58 README.pdf
+-rw-r--r--  1 imaisasuke  staff      54  7 31 21:39 a.txt
+-rwxr-xr-x  1 imaisasuke  staff   34728  7 31 21:38 myshell
+-rw-r--r--  1 imaisasuke  staff    6929  7 31 21:37 myshell.c
+Command: ls -l > a.txt
+Command: cat a.txt
+total 448
+-rw-r--r--  1 imaisasuke  staff      88  7 25 09:58 Makefile
+-rw-r--r--  1 imaisasuke  staff    1594  7 25 09:58 README.md
+-rw-r--r--  1 imaisasuke  staff  172057  7 25 09:58 README.pdf
+-rw-r--r--  1 imaisasuke  staff       0  7 31 21:40 a.txt
+-rwxr-xr-x  1 imaisasuke  staff   34728  7 31 21:38 myshell
+-rw-r--r--  1 imaisasuke  staff    6929  7 31 21:37 myshell.c
+
+出力リダイレクト失敗
+Command: ls > /.a.txt
+something is wrong
+
+入力リダイレクト成功
+Command: ls > a.txt
+Command: ls
+Makefile	README.pdf	myshell
+README.md	a.txt		myshell.c
+Command: grep .c < a.txt
+myshell.c
+
+入力リダイレクト失敗
+Command: cat a.txt
+cat: a.txt: No such file or directory
+Command: grep b.txt < a.txt
+something is wrong
+
+
+*/
 
